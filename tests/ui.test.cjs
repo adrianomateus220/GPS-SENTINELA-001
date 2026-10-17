@@ -9,7 +9,7 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE),assert=require('node:ass
  await page.goto('http://127.0.0.1:8765');await page.waitForFunction(()=>typeof hospitals!=='undefined'&&hospitals.length===16);await page.click('#emergency');
  await page.waitForFunction(()=>document.querySelector('#nearbyStatus').textContent.includes('Busca online concluída'));
  assert((await page.locator('#houseNumber').innerText()).includes('120'));assert.equal(await page.locator('#accuracy,#updated,#speed').count(),0);
- assert(await page.locator('#hospitals .hospital').count()>1);assert.equal(await page.locator('#otherHospitals .hospital').count(),1);assert.equal(await page.locator('#otherHospitals button').innerText(),'REGULAÇÃO CONFIRMOU ESTE HOSPITAL');
+ assert(await page.locator('#hospitals .hospital').count()>1);assert.equal(await page.locator('#otherHospitals .hospital').count(),1);await page.getByText('Outros hospitais próximos • capacidade a confirmar',{exact:true}).click();assert.equal(await page.locator('#otherHospitals button').innerText(),'REGULAÇÃO CONFIRMOU ESTE HOSPITAL');
  const distances=await page.locator('#hospitals .hospital .distance').allTextContents();const kms=distances.filter(s=>s.includes('km pelo')).map(s=>parseFloat(s));assert.deepEqual(kms,[...kms].sort((a,b)=>a-b));assert(kms.length>1);
  await page.fill('#filterHospital','zzzzz');assert.equal(await page.locator('#hospitals .hospital').count(),0);await page.fill('#filterHospital','');
  await page.evaluate(()=>{lastFix.timestamp=0;renderHospitals();});assert.equal(await page.locator('#hospitals .hospital').count(),0);assert((await page.locator('#nearbyStatus').innerText()).includes('Aguardando'));

@@ -38,11 +38,11 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE),assert=require('node:ass
  await page.evaluate(()=>{lastFix.timestamp=Date.now()-20000;tick();});
  assert.equal(await page.locator('#houseNumber').innerText(),'Não disponível');
  assert.equal(await page.locator('#district').innerText(),'—');
- await page.click('#pause');assert.equal(await page.locator('#pause').innerText(),'Retomar localização');
+ await page.click('#pause');assert.equal(await page.locator('#pause').textContent(),'Retomar localização');
  await page.click('#pause');await page.waitForFunction(()=>window.watches===2);
  await page.evaluate(()=>window.failGPS({code:1}));
  assert((await page.locator('#status').innerText()).includes('Permita'));
- assert.equal(await page.locator('#pause').innerText(),'Tentar localização');
+ assert.equal(await page.locator('#pause').textContent(),'Tentar localização');
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth),true);assert.deepEqual(errors,[]);
  console.log('OK: auto-start, offline map, removed modules, latest fix, unavailable number, stale address, pause/resume, denied permission and mobile layout.');
  }finally{await browser.close();}

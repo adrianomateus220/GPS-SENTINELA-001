@@ -1,7 +1,7 @@
 name: Compilar APK de teste
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, codex/sentinela-0.5]
   workflow_dispatch:
 permissions:
   contents: read

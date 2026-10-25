@@ -20,9 +20,27 @@ function point(){return lastFix?[lastFix.coords.latitude,lastFix.coords.longitud
 function fresh(){return lastFix&&Date.now()-lastFix.timestamp<15000;}
 function addressValid(){return fresh()&&addressPos&&Date.now()-addressAt<ADDRESS_MAX_AGE&&distance(addressPos,point())<ADDRESS_MAX_DISTANCE;}
 function speak(t){if(!voice||!('speechSynthesis'in window))return;speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='pt-BR';speechSynthesis.speak(u);}
-function clearAddress(){address='';addressPos=null;addressAt=0;$('road').textContent='Atualizando rua…';$('houseNumber').textContent='Não disponível';$('district').textContent='—';$('municipality').textContent='—';$('postal').textContent='—';$('place').textContent='Aguardando endereço da posição atual';}
+function clearAddress(){$('houseNumber').title='';address='';addressPos=null;addressAt=0;$('road').textContent='Atualizando rua…';$('houseNumber').textContent='Não disponível';$('district').textContent='—';$('municipality').textContent='—';$('postal').textContent='—';$('place').textContent='Aguardando endereço da posição atual';}
 function locationText(){if(!lastFix)return 'Posição ainda não obtida.';const p=lastFix.coords;return ['GPS Sentinela — localização',addressValid()?address:'Endereço não disponível para esta posição',`Coordenadas: ${p.latitude.toFixed(6)}, ${p.longitude.toFixed(6)}`,`Posição de ${new Date(lastFix.timestamp).toLocaleString('pt-BR')}`,`Referência: ${$('reference').value.trim()||'não informada'}`,`Mapa: https://www.google.com/maps/search/?api=1&query=${p.latitude},${p.longitude}`].join('\n');}
 async function copyLocation(){if(!lastFix){$('status').textContent='Aguardando localização para copiar.';return;}try{await navigator.clipboard.writeText(locationText());$('status').textContent='Localização copiada';}catch(e){$('copytext').value=locationText();$('copybox').hidden=false;$('copytext').select();}}
+let nativeNumberBusy=false;
+function normalizeRoad(name){return String(name||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\b(r|av|avenida|rua)\.?\s+/g,'').replace(/[^a-z0-9]/g,'');}
+async function enrichNumber(pos,epoch,road,stamp){
+ if(nativeNumberBusy||location.hostname!=='appassets.androidplatform.net')return;
+ nativeNumberBusy=true;const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),3500);
+ try{
+  const r=await fetch(`/native-address?lat=${pos[0]}&lon=${pos[1]}`,{signal:controller.signal});if(!r.ok)return;
+  const a=await r.json(),number=String(a.house_number||'').trim();
+  // A nearby cross street, an old fix or a distant result must never supply this number.
+  if(!number||!/[0-9]/.test(number)||normalizeRoad(a.road)!==normalizeRoad(road))return;
+  if(!Number.isFinite(a.lat)||!Number.isFinite(a.lon)||distance(pos,[a.lat,a.lon])>25)return;
+  if(epoch!==generation||!track||stamp!==addressAt||!addressValid()||distance(pos,point())>15||lastFix.coords.accuracy>50)return;
+  $('houseNumber').textContent=number;$('houseNumber').title='Número informado pelo cadastro de endereços do Android; confirme o imóvel no local.';
+  const district=$('district').textContent;
+  $('place').textContent=['nº '+number,district].join(' • ');
+  address=[road,'nº '+number,district,$('municipality').textContent].join(' • ');
+ }catch(e){}finally{clearTimeout(timer);nativeNumberBusy=false;}
+}
 async function geocode(){
  if(!track||geoBusy||!fresh()||Date.now()-lastGeoTime<retryDelay)return;
  const pos=point();
@@ -42,6 +60,7 @@ async function geocode(){
   address=[road,a.house_number?'nº '+a.house_number:'Número não disponível',district,a.city||a.town||a.municipality||a.village].filter(Boolean).join(' • ');
   addressPos=pos;addressAt=Date.now();$('road').textContent=road;$('houseNumber').textContent=number;$('district').textContent=district;$('place').textContent=[a.house_number?'nº '+a.house_number:'Número não disponível',district].join(' • ');
   $('municipality').textContent=[a.city||a.town||a.municipality||a.village,a.state].filter(Boolean).join(' / ')||'Não disponível';$('postal').textContent=a.postcode||'Não disponível';
+  if(!a.house_number)enrichNumber(pos,epoch,road,addressAt);
   if(road!==lastRoad){lastRoad=road;speak('Via atual: '+road);}
  }catch(e){if(epoch===generation&&track){retryDelay=Math.min(30000,retryDelay*2);if(!addressValid()){clearAddress();$('place').textContent='Endereço indisponível. Tentando novamente…';}}}
  finally{clearTimeout(timeout);if(epoch===generation){geoBusy=false;geoController=null;geocode();}}

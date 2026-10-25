@@ -26,6 +26,7 @@ jobs:
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
       - name: Testar interface móvel
         run: |
+          node tests/number.test.cjs
           npm install --prefix "$RUNNER_TEMP/sentinela-ui" playwright@1.56.1
           node "$RUNNER_TEMP/sentinela-ui/node_modules/playwright/cli.js" install --with-deps chromium
           python3 -m http.server 8765 --directory app/src/main/assets >/tmp/sentinela-http.log 2>&1 &

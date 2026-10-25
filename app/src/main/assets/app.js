@@ -60,6 +60,7 @@ window.addEventListener('pagehide',pause);
 window.addEventListener('pageshow',e=>{if(e.persisted)start();});
 // GPS starts before any remote map library or boundary dataset is loaded.
 start();
-function initMap(){if(map||!window.L)return;map=L.map('map').setView([-23.55,-46.63],12);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);renderMap();window.dispatchEvent(new Event('sentinela-map-ready'));}
+function initMap(){if(map||!window.L)return;map=L.map('map').setView([-23.55,-46.63],12);// Retina tiles at 512 CSS pixels enlarge labels without changing the geographic viewport.
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',{tileSize:512,zoomOffset:-1,minZoom:1,maxZoom:20,maxNativeZoom:20,subdomains:'abcd',attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'}).addTo(map);renderMap();window.dispatchEvent(new Event('sentinela-map-ready'));}
 const css=document.createElement('link');css.rel='stylesheet';css.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';document.head.append(css);
 const leaflet=document.createElement('script');leaflet.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';leaflet.async=true;leaflet.onload=initMap;leaflet.onerror=()=>{$('map').textContent='Mapa indisponível. A localização continua ativa.';};document.head.append(leaflet);

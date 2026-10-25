@@ -1,35 +1,27 @@
-# GPS Sentinela 0.2 — protótipo
+# GPS Sentinela 0.5
 
-Preserva a identidade visual da base `base-aprovada-v0.1`.
+Localização automática ao abrir, com rua, número cadastrado e bairro. Mantém mapa, identidade visual, município/estado, CEP, coordenadas, referência visual, voz opcional e cópia da localização.
 
 ## Alterações
-- Detalhes: bairro, município/estado, CEP quando disponível, coordenadas, precisão, idade da posição e referência visual manual.
-- Botão Emergência grave: localização copiável, discador 192 e catálogo inicial de dez referências hospitalares paulistas.
-- Ordenação por distância geodésica em linha reta, nunca apresentada como tempo ou melhor rota. Desativada sem posição recente (30 segundos) ou precisão de até 100 metros.
-- Filtro por neurocirurgia documentada, sem promessa de plantão ou adequação clínica.
-- Destino informado pela regulação em qualquer cidade de SP e navegação externa pelo Google Maps.
-
-## Limites importantes
-Este catálogo NÃO representa cobertura hospitalar completa de todo o estado. Há regiões sem referência cadastrada. Não identifica automaticamente o hospital adequado ao paciente, não consulta vagas, equipes, sangue ou aceitação em tempo real e não substitui regulação/triagem. Nenhuma UBS ou UPA é incluída no catálogo. Algumas referências institucionais são antigas: consulta da página não comprova manutenção atual do serviço. Crianças, queimaduras, trauma craniano e outros perfis exigem confirmação específica.
-
-O botão de rota exige confirmação de destino com regulação/resgate. Coordenadas OpenStreetMap representam prédios e não a porta de urgência; conferir acesso no navegador. HCFMB sem geocodificação confirmada aparece sem distância. O tempo e o trajeto são calculados no Maps.
-
-Fontes por hospital estão em `app/src/main/assets/hospitals.json`. As posições do usuário não são gravadas pelo aplicativo. Reverso de endereço envia coordenadas ao Nominatim; tiles ao OpenStreetMap; ao abrir a rota, o destino é enviado ao Google Maps. Não inserir identificação de pacientes no campo de referência. Aplicativo sem funcionamento garantido em segundo plano.
+- Marcador em seta, orientado pelo rumo do GPS durante movimento ou pelo deslocamento entre posições válidas. Mapa com zoom inicial 16 e altura de 55% da tela para mostrar as vias próximas; mantém rótulos originais do OpenStreetMap. Sem rumo disponível, a seta aponta para cima até haver deslocamento suficiente.
+- Removidos sentido da via, painel de numeral próximo aproximado e emergência hospitalar, incluindo os respectivos scripts, dados e consultas.
+- Número aparece no campo Número, somente quando retornado pelo cadastro do mapa. Ausência aparece como Não disponível; não há cálculo de número exato a partir do GPS.
+- GPS inicia antes do carregamento da biblioteca remota do mapa. A permissão do Android continua necessária no primeiro uso.
+- Endereço: intervalo mínimo de 1,5 segundo entre consultas, uma consulta por vez, timeout de 4 segundos, tentativa seguinte usando a posição mais recente. Falhas aplicam espera progressiva até 30 segundos. Respostas distantes 30 m ou mais da posição atual são descartadas.
+- Reconsulta após deslocamento de 8 m ou 15 segundos; endereço expira após 20 segundos, deslocamento de 30 m ou posição sem atualização há 15 segundos. Campos antigos são limpos juntos.
+- Polígonos de limites carregam apenas quando sua seção é aberta, evitando ler/processar 2,4 MB na inicialização.
+- Pausar/retomar é opcional e não bloqueia o início automático.
 
 ## Verificação
-`node tests/emergency.test.cjs` verifica frescor/precisão, distância e URL. GitHub Actions executa assembleDebug e lintDebug. Teste em aparelho ainda necessário, especialmente GPS real, discador e abertura externa do Maps.
+O workflow executa testes de interface com Playwright, assembleDebug e lintDebug. Os testes simulam início automático, mapa indisponível, deslocamento com resposta atrasada, número ausente, endereço antigo, pausa/retomada e permissão negada.
 
-APK debug: nova chave temporária a cada build pode exigir desinstalar a versão anterior. Nenhuma chave privada é publicada no repositório.
+Para executar a interface localmente, sirva app/src/main/assets na porta 8765 e execute `PLAYWRIGHT_MODULE=/caminho/playwright node tests/ui.test.cjs`.
 
-## Versão 0.3
-Velocidade removida. Sentido estimado pela sequência de posições recentes e conexões da via no OpenStreetMap/Overpass; sem prever conversões. GPS impreciso, paralelas ambíguas ou dados antigos suspendem a indicação. Numeração próxima aproximada, consultada no mínimo a cada 6 segundos em movimento; sem número disponível, não há inferência de numeral. Requer internet e serviços públicos, não oferece SLA.
+O intervalo de consulta não garante tempo de atualização real: depende de GPS, rede e geocodificador. Testar em aparelho durante deslocamento continua necessário. Números cadastrados podem ser de um imóvel próximo; não comprovam o imóvel exato. Sem funcionamento garantido em segundo plano.
 
-### Limites
-163 polígonos importados sem simplificar as coordenadas do mapa enviado pelo usuário: https://www.google.com/maps/d/viewer?mid=1aDNiKW0DUK61isW1h4OFwd4MV87KpaLr (Mapa - CPC + CPM JAN23). Camadas CPC, CPA-M6, CPA-M7, CPA-M8, CPA-M12. Importação 17/10/2026. Não é cobertura estadual; vigência não confirmada. Pontos de hospitais, delegacias e bombeiros não fazem parte desta importação de limites. Os hospitais desse mapa não são evidência de atendimento a trauma grave.
+## Dados e serviços
+Endereço envia coordenadas ao Nominatim/OpenStreetMap; o mapa usa tiles OpenStreetMap e Leaflet. Serviços públicos possuem limites e não oferecem SLA. Para distribuição em escala, configurar infraestrutura de geocodificação com capacidade compatível. Não são feitas buscas de hospital nem rotas de sentido.
 
-Testes: node tests/emergency.test.cjs e node tests/direction.test.cjs; interface móvel via Playwright no Actions; assembleDebug e lintDebug. Validar em campo antes de uso operacional.
+Limites: 163 polígonos do mapa CPC + CPM JAN23 enviado pelo usuário, importados em 17/10/2026, camadas CPC, CPA-M6, CPA-M7, CPA-M8 e CPA-M12. Cobertura parcial e vigência não confirmada. Base visual anterior preservada em base-aprovada-v0.1.
 
-## Versão 0.4
-Campos visuais de precisão e última atualização removidos; validação interna mantida. Ícone adaptativo próprio (escudo e pin). 16 referências documentadas, com evidência específica descrita por hospital (não equivalem todas a centros de trauma de alta complexidade). Busca online de hospitais via Overpass em raio de 50/100 km, sem limite fixo de quantidade no cliente; cobertura depende do OSM. Resultados sem evidência institucional ficam separados, com confirmação operacional explícita para este caso/sessão antes da rota. UPA/UBS/AMA/CAPS e serviços especializados incompatíveis são excluídos.
-
-OSRM Table calcula trajetos de carro; ordenação usa distância dos trajetos calculados, que não é garantia do menor trajeto possível, menor tempo real ou hospital mais próximo entre todos os existentes. Não usa trânsito em tempo real. Falha parcial/nula não vira zero km; linha reta é identificada. Rotas expiram em 60 s ou deslocamento >=100 m; localização antiga impede comparação. Coordenadas são enviadas a Overpass/OSRM/Nominatim para consultas; nenhuma informação clínica é coletada. Serviços públicos sem SLA, protótipo não homologado para despacho operacional. Confirme capacidade para o caso e entrada de urgência com regulação.
+APK de teste: uma chave temporária diferente pode exigir desinstalar a versão anterior. Nenhuma chave privada é publicada no repositório.

@@ -30,6 +30,7 @@ public class OfflineDeviceTest {
   MainActivity activity=(MainActivity)getInstrumentation().startActivitySync(new android.content.Intent(context,MainActivity.class).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK));Thread.sleep(10000);
   for(int i=0;i<6;i++){runTestOnUiThread(()->{Location l=new Location("gps");l.setLatitude(fix.latitude);l.setLongitude(fix.longitude);l.setAccuracy(5);l.setTime(System.currentTimeMillis());l.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());activity.onLocationChanged(l);});Thread.sleep(2000);}
   runTestOnUiThread(()->{View root=activity.getWindow().getDecorView();assertTrue("Local street displayed",text(root,expected));assertTrue("Municipality resolved from saved polygons",text(root,"Osasco"));assertTrue("Offline package ready",text(root,"consulta local"));assertFalse(text(root,"COORDENADAS"));assertFalse(text(root,"Voz:"));assertFalse(text(root,"Limites de companhias"));});
+  android.graphics.Bitmap screenshot=getInstrumentation().getUiAutomation().takeScreenshot();try(java.io.FileOutputStream out=new java.io.FileOutputStream(new File(context.getExternalFilesDir(null),"offline-test.png"))){screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG,100,out);}
   Thread.sleep(17000);
   runTestOnUiThread(()->{assertTrue("Old address expires with stale GPS",text(activity.getWindow().getDecorView(),"Aguardando posição atualizada"));});
  }

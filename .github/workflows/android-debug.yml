@@ -26,11 +26,15 @@ jobs:
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
       - name: Testar, compilar e verificar
         run: gradle --no-daemon --stacktrace testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug
+      - uses: actions/cache@v4
+        with:
+          path: /tmp/sentinela-data
+          key: sentinela-sudeste-2026-10
       - name: Baixar dados reais para teste offline
         run: |
           mkdir -p /tmp/sentinela-data
-          curl --fail --location --retry 2 --max-time 600 https://download.mapsforge.org/maps/v5/south-america/brazil/sudeste.map -o /tmp/sentinela-data/sudeste.map
-          curl --fail --location --retry 2 https://raw.githubusercontent.com/luizpedone/municipal-brazilian-geodata/master/minified/SP.min.json -o /tmp/sentinela-data/SP.json
+          test -s /tmp/sentinela-data/sudeste.map || curl --fail --location --retry 2 --max-time 600 https://download.mapsforge.org/maps/v5/south-america/brazil/sudeste.map -o /tmp/sentinela-data/sudeste.map
+          test -s /tmp/sentinela-data/SP.json || curl --fail --location --retry 2 https://raw.githubusercontent.com/luizpedone/municipal-brazilian-geodata/master/minified/SP.min.json -o /tmp/sentinela-data/SP.json
       - name: Habilitar KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules

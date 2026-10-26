@@ -10,6 +10,7 @@ adb shell pm grant br.com.sentinela.gps android.permission.ACCESS_COARSE_LOCATIO
 adb shell svc wifi disable
 adb shell svc data disable
 adb shell cmd connectivity airplane-mode enable
+adb shell settings put secure location_mode 0
 mkdir -p app/build/reports/device
 adb shell am instrument -w br.com.sentinela.gps.test/androidx.test.runner.AndroidJUnitRunner | tee app/build/reports/device/instrumentation.txt
 if ! rg -q 'OK \(1 test\)' app/build/reports/device/instrumentation.txt; then
@@ -17,3 +18,5 @@ if ! rg -q 'OK \(1 test\)' app/build/reports/device/instrumentation.txt; then
   exit 1
 fi
 adb logcat -d > app/build/reports/device/logcat.txt
+
+adb pull /sdcard/Android/data/br.com.sentinela.gps/files/offline-test.png app/build/reports/device/offline-test.png

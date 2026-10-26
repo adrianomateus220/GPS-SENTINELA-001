@@ -1,7 +1,7 @@
-name: Compilar APK de teste
+name: Compilar APK offline de teste
 on:
   push:
-    branches: [main, master, codex/sentinela-0.5]
+    branches: [main, master, 'codex/**']
   workflow_dispatch:
 permissions:
   contents: read
@@ -24,26 +24,19 @@ jobs:
           gradle-version: '8.9'
       - name: Instalar SDK
         run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
-      - name: Testar interface móvel
-        run: |
-          node tests/number.test.cjs
-          npm install --prefix "$RUNNER_TEMP/sentinela-ui" playwright@1.56.1
-          node "$RUNNER_TEMP/sentinela-ui/node_modules/playwright/cli.js" install --with-deps chromium
-          python3 -m http.server 8765 --directory app/src/main/assets >/tmp/sentinela-http.log 2>&1 &
-          PLAYWRIGHT_MODULE="$RUNNER_TEMP/sentinela-ui/node_modules/playwright" node tests/ui.test.cjs
-      - name: Compilar e verificar
-        run: gradle --no-daemon --stacktrace assembleDebug lintDebug
+      - name: Testar, compilar e verificar
+        run: gradle --no-daemon --stacktrace testDebugUnitTest assembleDebug lintDebug
       - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
         with:
-          name: GPS-Sentinela-APK-teste
+          name: GPS-Sentinela-0.7-offline-teste
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
-      - name: Relatório de verificação
+      - name: Relatorios
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: verificacao-android
+          name: verificacao-offline
           path: app/build/reports/
           if-no-files-found: ignore

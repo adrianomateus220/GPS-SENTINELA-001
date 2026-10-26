@@ -1,27 +1,24 @@
-# GPS Sentinela 0.5
+# GPS Sentinela 0.7 — teste offline
 
-Localização automática ao abrir, com rua, número cadastrado e bairro. Mantém mapa, identidade visual, município/estado, CEP, coordenadas, referência visual, voz opcional e cópia da localização.
+Android nativo, sem coordenadas na interface, limites policiais ou voz.
+O motor Mapsforge e suas fontes/temas estão no APK. Não há CDN, Nominatim nem leitor de voz.
 
-## Alterações
-- Marcador em seta, orientado pelo rumo do GPS durante movimento ou pelo deslocamento entre posições válidas. Mapa com zoom inicial 16 e altura de 55% da tela para mostrar as vias próximas; mantém rótulos originais do OpenStreetMap. Sem rumo disponível, a seta aponta para cima até haver deslocamento suficiente.
-- Removidos sentido da via, painel de numeral próximo aproximado e emergência hospitalar, incluindo os respectivos scripts, dados e consultas.
-- Número aparece no campo Número, somente quando retornado pelo cadastro do mapa. Ausência aparece como Não disponível; não há cálculo de número exato a partir do GPS.
-- GPS inicia antes do carregamento da biblioteca remota do mapa. A permissão do Android continua necessária no primeiro uso.
-- Endereço: intervalo mínimo de 1,5 segundo entre consultas, uma consulta por vez, timeout de 4 segundos, tentativa seguinte usando a posição mais recente. Falhas aplicam espera progressiva até 30 segundos. Respostas distantes 30 m ou mais da posição atual são descartadas.
-- Reconsulta após deslocamento de 8 m ou 15 segundos; endereço expira após 20 segundos, deslocamento de 30 m ou posição sem atualização há 15 segundos. Campos antigos são limpos juntos.
-- Polígonos de limites carregam apenas quando sua seção é aberta, evitando ler/processar 2,4 MB na inicialização.
-- Pausar/retomar é opcional e não bloqueia o início automático.
+Na primeira posição válida, identifica a UF por polígonos locais e oferece o pacote correspondente. Escolha manual disponível se o GPS não tiver sinal. Os mapas públicos Mapsforge são regionais: SP/RJ/MG/ES usam Sudeste, por exemplo; a cobertura maior é informada antes do download. DownloadManager oferece Wi-Fi, progresso, cancelamento e continuidade após fechar o aplicativo. O pacote só é ativado após verificar o cabeçalho/tamanho do mapa e analisar a base municipal. Arquivos parciais nunca são usados.
 
-## Verificação
-O workflow executa testes de interface com Playwright, assembleDebug e lintDebug. Os testes simulam início automático, mapa indisponível, deslocamento com resposta atrasada, número ausente, endereço antigo, pausa/retomada e permissão negada.
+Ruas são consultadas na geometria salva, por distância ao segmento, com rejeição em cruzamentos ambíguos, GPS impreciso e respostas antigas. Número só é apresentado se o cadastro vincular o endereço à mesma rua e estiver até 25 m com precisão GPS até 30 m; nunca é interpolado. Bairro só é mostrado se houver campo cadastral. Muitos arquivos Mapsforge não preservam todos os campos de endereço: **não há cobertura completa de números/bairros**, nem paridade garantida com serviços online. Município é identificado por contenção em polígonos, não pela cidade mais próxima.
 
-Para executar a interface localmente, sirva app/src/main/assets na porta 8765 e execute `PLAYWRIGHT_MODULE=/caminho/playwright node tests/ui.test.cjs`.
+Dados: OpenStreetMap/Mapsforge (ODbL; https://download.mapsforge.org/maps/v5/south-america/brazil/). Municípios: IBGE, distribuição de Luiz Pedone (2017, MIT; https://github.com/luizpedone/municipal-brazilian-geodata). Limites antigos podem divergir das divisões atuais. Mapas e municípios podem ser atualizados manualmente em Mapas offline; a fonte pública muda com o tempo.
 
-O intervalo de consulta não garante tempo de atualização real: depende de GPS, rede e geocodificador. Testar em aparelho durante deslocamento continua necessário. Números cadastrados podem ser de um imóvel próximo; não comprovam o imóvel exato. Sem funcionamento garantido em segundo plano.
+## Testar
 
-## Dados e serviços
-Endereço envia coordenadas ao Nominatim/OpenStreetMap; o mapa usa tiles OpenStreetMap e Leaflet. Serviços públicos possuem limites e não oferecem SLA. Para distribuição em escala, configurar infraestrutura de geocodificação com capacidade compatível. Não são feitas buscas de hospital nem rotas de sentido.
+1. Instale o APK e autorize localização precisa.
+2. Escolha Baixar pelo Wi-Fi e aguarde a confirmação de pacote salvo. Sudeste tem aproximadamente 800 MB (variável); reserve 1,3 GB.
+3. Ative modo avião mantendo a localização/GPS ligada. Feche e reabra o app.
+4. Ao ar livre, aguarde o sinal, verifique mapa, rua e município; o primeiro fix offline pode demorar.
+5. Confirme que números/bairros ausentes ficam explicitamente indisponíveis, e que ao parar o GPS ou afastar-se a informação antiga desaparece.
+6. Teste download interrompido, retomada, cancelamento e troca de estado. A área não baixada requer novo pacote.
 
-Limites: 163 polígonos do mapa CPC + CPM JAN23 enviado pelo usuário, importados em 17/10/2026, camadas CPC, CPA-M6, CPA-M7, CPA-M8 e CPA-M12. Cobertura parcial e vigência não confirmada. Base visual anterior preservada em base-aprovada-v0.1.
+Build: Java 17, Gradle 8.9, SDK 35. `gradle testDebugUnitTest assembleDebug lintDebug`.
+Não é navegação curva a curva. Dados offline não incluem trânsito. GPS apenas em primeiro plano.
 
-APK de teste: uma chave temporária diferente pode exigir desinstalar a versão anterior. Nenhuma chave privada é publicada no repositório.
+O APK de teste usa assinatura debug do build; se Android rejeitar atualização por assinatura diferente, preserve o anterior e instale após desinstalar (isso apaga dados locais). Código-fonte disponibilizado no repositório para permitir recompilação e substituição das bibliotecas LGPL.

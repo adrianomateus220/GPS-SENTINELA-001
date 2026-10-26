@@ -1,102 +1,69 @@
 package br.com.sentinela.gps;
+
 import android.Manifest;
-import android.location.Address;
-import android.location.Geocoder;
-import java.util.Locale;
-import java.util.List;
-import java.io.ByteArrayInputStream;
-import java.nio.charset.StandardCharsets;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import org.json.JSONObject;
-import android.app.Activity;
-import android.os.Bundle;
-import android.webkit.GeolocationPermissions;
-import android.webkit.WebChromeClient;
-import android.webkit.WebView;
-import android.webkit.WebResourceRequest;
-import android.webkit.WebResourceResponse;
-import android.content.Intent;
-import android.content.ActivityNotFoundException;
+import android.app.*;
+import android.os.*;
+import android.content.*;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.graphics.*;
+import android.location.*;
 import android.net.Uri;
-import android.widget.Toast;
-import androidx.webkit.WebViewAssetLoader;
-import androidx.webkit.WebViewClientCompat;
-public class MainActivity extends Activity {
- private WebView web;
- private final ExecutorService geocoderWorker=Executors.newSingleThreadExecutor();
- private final AtomicBoolean geocoderBusy=new AtomicBoolean(false);
- private WebResourceResponse nativeAddress(Uri uri){
-  JSONObject result=new JSONObject();
-  if(hasLocation()&&Geocoder.isPresent()&&geocoderBusy.compareAndSet(false,true)){
-   Future<JSONObject> future=null;
-   try{
-    final double lat=Double.parseDouble(uri.getQueryParameter("lat"));
-    final double lon=Double.parseDouble(uri.getQueryParameter("lon"));
-    if(!Double.isFinite(lat)||!Double.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180)throw new IllegalArgumentException();
-    future=geocoderWorker.submit(()->{
-     try{
-      JSONObject answer=new JSONObject();
-      List<Address> matches=new Geocoder(MainActivity.this,new Locale("pt","BR")).getFromLocation(lat,lon,1);
-      if(matches!=null&&!matches.isEmpty()){
-       Address a=matches.get(0);
-       answer.put("road",a.getThoroughfare());answer.put("house_number",a.getSubThoroughfare());
-       answer.put("suburb",a.getSubLocality());answer.put("city",a.getLocality());answer.put("state",a.getAdminArea());
-       if(a.hasLatitude()&&a.hasLongitude()){answer.put("lat",a.getLatitude());answer.put("lon",a.getLongitude());}
-      }
-      return answer;
-     }finally{geocoderBusy.set(false);}
-    });
-    result=future.get(3,TimeUnit.SECONDS);
-   }catch(Exception ignored){if(future==null)geocoderBusy.set(false);}
-  }
-  return new WebResourceResponse("application/json","UTF-8",new ByteArrayInputStream(result.toString().getBytes(StandardCharsets.UTF_8)));
- }
- private GeolocationPermissions.Callback pending;
- private String pendingOrigin;
- private static final String ORIGIN="https://appassets.androidplatform.net";
- @Override public void onCreate(Bundle b){
-  super.onCreate(b);
-  web=new WebView(this);setContentView(web);
-  web.getSettings().setJavaScriptEnabled(true);
-  web.getSettings().setDomStorageEnabled(true);
-  web.getSettings().setAllowFileAccess(false);
-  web.getSettings().setAllowContentAccess(false);
-  final WebViewAssetLoader loader=new WebViewAssetLoader.Builder().addPathHandler("/assets/",new WebViewAssetLoader.AssetsPathHandler(this)).build();
-  web.setWebViewClient(new WebViewClientCompat(){
-   @Override public WebResourceResponse shouldInterceptRequest(WebView view,WebResourceRequest request){Uri uri=request.getUrl();
-    if("https".equals(uri.getScheme())&&"appassets.androidplatform.net".equals(uri.getHost())&&"/native-address".equals(uri.getPath()))return nativeAddress(uri);
-    return loader.shouldInterceptRequest(uri);}
-   @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
-    if(!request.isForMainFrame())return false;
-    Uri uri=request.getUrl();
-    if("https".equals(uri.getScheme())&&"appassets.androidplatform.net".equals(uri.getHost()))return false;
-    if("https".equals(uri.getScheme())||"tel".equals(uri.getScheme())){
-     try{startActivity(new Intent("tel".equals(uri.getScheme())?Intent.ACTION_DIAL:Intent.ACTION_VIEW,uri));}
-     catch(ActivityNotFoundException e){Toast.makeText(MainActivity.this,"Nenhum aplicativo disponível para abrir este destino",Toast.LENGTH_LONG).show();}
-    }
-    return true;
-   }
-  });
-  web.setWebChromeClient(new WebChromeClient(){
-   @Override public void onGeolocationPermissionsShowPrompt(String origin,GeolocationPermissions.Callback cb){
-    if(!ORIGIN.equals(origin)&&!(ORIGIN+"/").equals(origin)){cb.invoke(origin,false,false);return;}
-    if(hasLocation()){cb.invoke(origin,true,false);return;}
-    if(pending!=null)pending.invoke(pendingOrigin,false,false);
-    pending=cb;pendingOrigin=origin;
-    requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},100);
-   }
-  });
-  web.loadUrl(ORIGIN+"/assets/index.html");
- }
+import android.view.*;
+import android.widget.*;
+import java.io.*;
+import java.util.*;
+import java.util.concurrent.*;
+import org.json.*;
+import org.mapsforge.core.model.LatLong;
+import org.mapsforge.map.android.graphics.AndroidGraphicFactory;
+import org.mapsforge.map.android.util.AndroidUtil;
+import org.mapsforge.map.android.view.MapView;
+import org.mapsforge.map.layer.cache.TileCache;
+import org.mapsforge.map.layer.renderer.TileRendererLayer;
+import org.mapsforge.map.reader.MapFile;
+import org.mapsforge.map.rendertheme.internal.MapsforgeThemes;
+
+public class MainActivity extends Activity implements LocationListener {
+ private final Handler ui=new Handler(Looper.getMainLooper());
+ private final ExecutorService worker=Executors.newSingleThreadExecutor();
+ private LinearLayout root,panel; private FrameLayout mapFrame; private MapView map;private org.mapsforge.map.layer.overlay.Marker positionMarker;private float heading;
+ private TextView status,packStatus,road,number,district,city; private EditText reference;private Button pauseButton;
+ private DownloadManager downloads;private android.content.SharedPreferences prefs;private File folder;
+ private volatile GeoAreas states,cities; private RoadLookup lookup;private volatile String activeUF="";private String suggested="",prompted="";private boolean busy,paused,destroyed,resumed,checking;
+ private Location last;private long lastQuery;private String lastAddress="";private double addressLat,addressLon;private long addressTime;
+ private final Runnable ticker=new Runnable(){public void run(){if(destroyed)return;pollDownload();if(last!=null&&SystemClock.elapsedRealtimeNanos()-last.getElapsedRealtimeNanos()>15_000_000_000L){status.setText("Aguardando sinal atualizado do GPS");clearAddress();if(positionMarker!=null)positionMarker.setVisible(false);}ui.postDelayed(this,1500);}};
+ @Override public void onCreate(Bundle state){super.onCreate(state);AndroidGraphicFactory.createInstance(getApplication());getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);prefs=getSharedPreferences("offline-v1",MODE_PRIVATE);downloads=(DownloadManager)getSystemService(DOWNLOAD_SERVICE);folder=new File(getExternalFilesDir(null),"offline");folder.mkdirs();buildUi();worker.execute(()->{try{states=new GeoAreas(getAssets().open("states.json"));}catch(Exception e){}String uf=prefs.getString("active","");if(!uf.isEmpty())loadPack(uf);});ui.post(ticker);if(!hasLocation())requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.ACCESS_COARSE_LOCATION},10);}
+ private int dp(int n){return Math.round(n*getResources().getDisplayMetrics().density);}
+ private TextView text(String value,int size){TextView v=new TextView(this);v.setText(value);v.setTextSize(size);v.setTextColor(Color.rgb(233,240,244));v.setPadding(dp(16),dp(5),dp(16),dp(5));return v;}
+ private TextView field(String label,String value,int size){panel.addView(text(label,11));TextView v=text(value,size);panel.addView(v);return v;}
+ private Button button(String value,LinearLayout parent,Runnable action){Button b=new Button(this);b.setText(value);b.setTextSize(12);b.setOnClickListener(v->action.run());parent.addView(b,new LinearLayout.LayoutParams(0,-2,1));return b;}
+ private void buildUi(){root=new LinearLayout(this);root.setOrientation(1);root.setBackgroundColor(Color.rgb(9,15,21));root.setPadding(0,dp(4),0,0);setContentView(root);root.setOnApplyWindowInsetsListener((v,insets)->{root.setPadding(0,insets.getSystemWindowInsetTop(),0,insets.getSystemWindowInsetBottom());return insets;});root.addView(text("◈ GPS SENTINELA",23));status=text("Obtendo localização…",12);root.addView(status);packStatus=text("Preparando dados offline…",12);root.addView(packStatus);
+ mapFrame=new FrameLayout(this);root.addView(mapFrame,new LinearLayout.LayoutParams(-1,0,1.15f));TextView empty=text("Baixe o pacote do seu estado para exibir o mapa.\nO GPS funciona sem internet.",17);empty.setGravity(Gravity.CENTER);mapFrame.addView(empty,new FrameLayout.LayoutParams(-1,-1));
+ ScrollView scroll=new ScrollView(this);root.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));panel=new LinearLayout(this);panel.setOrientation(1);scroll.addView(panel);road=field("VIA ATUAL","Aguardando localização",25);number=field("NÚMERO PRÓXIMO CADASTRADO","Não disponível",18);district=field("BAIRRO / DISTRITO","Não disponível",18);city=field("MUNICÍPIO / ESTADO","Não disponível",18);
+ reference=new EditText(this);reference.setHint("Referência visual / cruzamento");reference.setTextSize(14);reference.setTextColor(Color.WHITE);reference.setSingleLine(true);panel.addView(reference);LinearLayout actions=new LinearLayout(this);panel.addView(actions);pauseButton=button("Pausar GPS",actions,()->{paused=!paused;pauseButton.setText(paused?"Retomar GPS":"Pausar GPS");if(paused){stopGps();clearAddress();status.setText("Localização pausada");}else startGps();});button("Copiar",actions,this::copy);LinearLayout more=new LinearLayout(this);panel.addView(more);button("Mapas offline",more,this::chooseState);button("Centralizar",more,()->{if(last!=null&&map!=null)map.setCenter(new LatLong(last.getLatitude(),last.getLongitude()));});panel.addView(text("Ferramenta auxiliar • não oficial. Endereços dependem do cadastro e do GPS. Número próximo não confirma o imóvel. GPS ativo enquanto o app estiver aberto.\n© OpenStreetMap contributors (ODbL) • Mapsforge (LGPLv3). Municípios: base IBGE disponibilizada por Luiz Pedone (2017, MIT).",11));}
  private boolean hasLocation(){return checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)==PackageManager.PERMISSION_GRANTED||checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED;}
- @Override public void onRequestPermissionsResult(int req,String[] permissions,int[] grants){super.onRequestPermissionsResult(req,permissions,grants);if(req==100&&pending!=null){pending.invoke(pendingOrigin,hasLocation(),false);pending=null;}}
- @Override protected void onPause(){super.onPause();web.onPause();}
- @Override protected void onResume(){super.onResume();if(web!=null)web.onResume();}
- @Override protected void onDestroy(){if(pending!=null){pending.invoke(pendingOrigin,false,false);pending=null;}geocoderWorker.shutdownNow();web.destroy();super.onDestroy();}
- @Override public void onBackPressed(){if(web.canGoBack())web.goBack();else super.onBackPressed();}
+ @android.annotation.SuppressLint("MissingPermission") private void startGps(){if(paused||!hasLocation()||!resumed)return;LocationManager lm=(LocationManager)getSystemService(LOCATION_SERVICE);try{if(lm.isProviderEnabled(LocationManager.GPS_PROVIDER))lm.requestLocationUpdates(LocationManager.GPS_PROVIDER,1000,0,this);else status.setText("Ative o GPS nas configurações do celular");if(lm.isProviderEnabled(LocationManager.NETWORK_PROVIDER))lm.requestLocationUpdates(LocationManager.NETWORK_PROVIDER,1500,0,this);}catch(SecurityException e){status.setText("Autorize o acesso à localização");}}
+ private void stopGps(){((LocationManager)getSystemService(LOCATION_SERVICE)).removeUpdates(this);}
+ @Override public void onRequestPermissionsResult(int r,String[] p,int[] g){super.onRequestPermissionsResult(r,p,g);if(r==10){if(hasLocation())startGps();else status.setText("Localização negada. Autorize nas configurações ou escolha o estado em Mapas offline.");}}
+ @Override public void onLocationChanged(Location loc){if(paused||!resumed||SystemClock.elapsedRealtimeNanos()-loc.getElapsedRealtimeNanos()>15_000_000_000L)return;if(last!=null&&loc.getElapsedRealtimeNanos()<last.getElapsedRealtimeNanos())return;last=new Location(loc);status.setText(loc.getAccuracy()>80?"GPS impreciso — aguardando sinal melhor":"● Localização ativa");if(loc.hasBearing()&&loc.getSpeed()>1)heading=loc.getBearing();updateMarker();if(map!=null)map.setCenter(new LatLong(loc.getLatitude(),loc.getLongitude()));if(addressTime!=0&&(SystemClock.elapsedRealtime()-addressTime>15000||RoadLookup.meters(addressLat,addressLon,loc.getLatitude(),loc.getLongitude())>25))clearAddress();if(busy||SystemClock.elapsedRealtime()-lastQuery<1200)return;busy=true;lastQuery=SystemClock.elapsedRealtime();worker.execute(()->resolve(loc));}
+ private void resolve(Location fix){String uf="",town="";RoadLookup.Result result=null;try{if(states!=null){JSONObject area=states.at(fix.getLatitude(),fix.getLongitude());if(area!=null)uf=area.optString("UF");}if(cities!=null){JSONObject c=cities.at(fix.getLatitude(),fix.getLongitude());if(c!=null)town=c.optString("NOME",c.optString("name",c.optString("NM_MUN",c.optString("NM_MUNICIP",""))));}if(lookup!=null)result=lookup.at(fix.getLatitude(),fix.getLongitude(),fix.getAccuracy());}catch(Exception e){}String state=uf,municipality=town;RoadLookup.Result answer=result;ui.post(()->{busy=false;if(destroyed||paused||!resumed||last==null)return;if(!state.isEmpty()){suggested=state;if(!state.equals(activeUF)&&!state.equals(prompted)&&prefs.getLong("mapId",-1)==-1){prompted=state;offer(state);}}if(SystemClock.elapsedRealtimeNanos()-fix.getElapsedRealtimeNanos()>15_000_000_000L||RoadLookup.meters(last.getLatitude(),last.getLongitude(),fix.getLatitude(),fix.getLongitude())>25)return;city.setText((municipality.isEmpty()?"Município não identificado":municipality)+(state.isEmpty()?"":" / "+state));if(answer!=null){road.setText(answer.road);number.setText(answer.number);district.setText(answer.district);addressLat=fix.getLatitude();addressLon=fix.getLongitude();addressTime=SystemClock.elapsedRealtime();lastAddress=answer.road+" • "+answer.number+" • "+city.getText();}else road.setText("Baixe o pacote para identificar a rua");});}
+ private void clearAddress(){road.setText("Aguardando posição atualizada…");number.setText("Não disponível");district.setText("Não disponível");city.setText("Não disponível");lastAddress="";addressTime=0;}
+ private void chooseState(){if(prefs.getLong("mapId",-1)!=-1){new AlertDialog.Builder(this).setTitle("Download em andamento").setMessage(packStatus.getText()).setPositiveButton("Continuar",null).setNegativeButton("Cancelar download",(d,w)->cancelDownload()).show();return;}new AlertDialog.Builder(this).setTitle("Baixar dados do estado").setItems(GeoAreas.UFS,(d,i)->offer(GeoAreas.UFS[i])).show();}
+ private File mapFile(String uf){return new File(folder,GeoAreas.region(uf)+".map");}private File cityFile(String uf){return new File(folder,uf+".json");}
+ private void offer(String uf){if(isFinishing()||destroyed)return;String region=GeoAreas.region(uf);String size=region.equals("sudeste")?"cerca de 800 MB":region.equals("sul")?"cerca de 400 MB":region.equals("nordeste")?"cerca de 460 MB":"cerca de 300 MB";boolean saved=mapFile(uf).exists()&&cityFile(uf).exists();new AlertDialog.Builder(this).setTitle(saved?"Usar pacote de "+uf:"Preparar "+uf+" para uso offline").setMessage(saved?"Os arquivos deste estado já estão salvos. Deseja ativá-los?":"O mapa cobre toda a região "+region.toUpperCase(Locale.ROOT)+", incluindo "+uf+" ("+size+", tamanho variável), além da base de municípios do estado.\n\nAs bibliotecas, fontes e o leitor de ruas já vêm no aplicativo. Bairro e número só aparecem quando cadastrados; não há garantia de cobertura completa.\n\nPrefira Wi-Fi. O download continua em segundo plano e pode ser cancelado em Mapas offline.").setPositiveButton(saved?"Ativar":"Baixar pelo Wi-Fi",(d,w)->{if(saved)worker.execute(()->loadPack(uf));else beginDownload(uf,true);}).setNeutralButton(saved?"Atualizar":"Usar dados móveis",(d,w)->beginDownload(uf,saved)).setNegativeButton("Depois",null).show();}
+ private void beginDownload(String uf,boolean wifi){if(prefs.getLong("mapId",-1)!=-1)return;try{long free=folder.getUsableSpace();if(free<1_300_000_000L){packStatus.setText("Libere pelo menos 1,3 GB para baixar e validar o pacote.");return;}String region=GeoAreas.region(uf);File temp=new File(folder,region+".map.part"),municipal=new File(folder,uf+".json.part");temp.delete();municipal.delete();long mid=-1,cid=-1;try{mid=enqueue("https://download.mapsforge.org/maps/v5/south-america/brazil/"+region+".map",temp,"Mapa offline • "+region,wifi);cid=enqueue("https://raw.githubusercontent.com/luizpedone/municipal-brazilian-geodata/master/minified/"+uf+".min.json",municipal,"Municípios offline • "+uf,wifi);}catch(Exception e){if(mid!=-1)downloads.remove(mid);if(cid!=-1)downloads.remove(cid);throw e;}prefs.edit().putLong("mapId",mid).putLong("cityId",cid).putString("pendingUF",uf).apply();packStatus.setText(wifi?"Download solicitado — aguardando Wi-Fi…":"Download solicitado…");}catch(Exception e){packStatus.setText("Não foi possível iniciar o download. Tente novamente.");}}
+ private long enqueue(String url,File target,String title,boolean wifi){DownloadManager.Request r=new DownloadManager.Request(Uri.parse(url)).setTitle("Sentinela: "+title).setDestinationUri(Uri.fromFile(target)).setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED).setAllowedOverRoaming(false);if(wifi)r.setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI);return downloads.enqueue(r);}
+ private long[] progress(long id){try(Cursor c=downloads.query(new DownloadManager.Query().setFilterById(id))){if(c!=null&&c.moveToFirst())return new long[]{c.getLong(c.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)),c.getLong(c.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)),c.getLong(c.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))};}return new long[]{DownloadManager.STATUS_FAILED,0,-1};}
+ private void pollDownload(){long mid=prefs.getLong("mapId",-1);if(mid==-1||checking)return;long[] m=progress(mid),c=progress(prefs.getLong("cityId",-1));if(m[0]==DownloadManager.STATUS_FAILED||c[0]==DownloadManager.STATUS_FAILED){cancelDownload();packStatus.setText("Download interrompido. Abra Mapas offline para tentar novamente.");return;}if(m[0]==DownloadManager.STATUS_SUCCESSFUL&&c[0]==DownloadManager.STATUS_SUCCESSFUL){checking=true;packStatus.setText("Validando o mapa e a base de municípios…");String uf=prefs.getString("pendingUF","");worker.execute(()->finishDownload(uf));return;}String downloaded=String.format(Locale.ROOT,"%.0f MB",(m[1]+c[1])/1048576.0);String percent=m[2]>0?" / "+String.format(Locale.ROOT,"%.0f MB",(m[2]+Math.max(0,c[2]))/1048576.0):"";packStatus.setText("Baixando: "+downloaded+percent+((m[0]==DownloadManager.STATUS_PAUSED||m[0]==DownloadManager.STATUS_PENDING)?" • aguardando rede/espaço":""));}
+ private void finishDownload(String uf){try{File temp=new File(folder,GeoAreas.region(uf)+".map.part"),municipal=new File(folder,uf+".json.part");MapFile check=new MapFile(temp);try{if(check.getMapFileInfo().fileSize!=temp.length())throw new IOException("Truncado");}finally{check.close();}new GeoAreas(new FileInputStream(municipal));if(lookup!=null){lookup.close();lookup=null;}java.nio.file.Files.move(temp.toPath(),mapFile(uf).toPath(),java.nio.file.StandardCopyOption.REPLACE_EXISTING);java.nio.file.Files.move(municipal.toPath(),cityFile(uf).toPath(),java.nio.file.StandardCopyOption.REPLACE_EXISTING);prefs.edit().remove("mapId").remove("cityId").remove("pendingUF").apply();loadPack(uf);}catch(Exception e){prefs.edit().remove("mapId").remove("cityId").remove("pendingUF").apply();ui.post(()->packStatus.setText("Pacote não validado. Tente baixar novamente em Mapas offline."));}finally{ui.post(()->checking=false);}}
+ private void loadPack(String uf){try{GeoAreas newCities=new GeoAreas(new FileInputStream(cityFile(uf)));RoadLookup newLookup=new RoadLookup(mapFile(uf));if(lookup!=null)lookup.close();lookup=newLookup;cities=newCities;activeUF=uf;prefs.edit().putString("active",uf).apply();ui.post(()->{if(destroyed)return;showMap(uf);packStatus.setText("✓ Mapa e municípios salvos • "+uf+" / "+GeoAreas.region(uf)+" • consulta local");});}catch(Exception e){ui.post(()->packStatus.setText("Pacote indisponível. Baixe novamente em Mapas offline."));}}
+ private void cancelDownload(){if(checking)return;long m=prefs.getLong("mapId",-1),c=prefs.getLong("cityId",-1);if(m!=-1)downloads.remove(m);if(c!=-1)downloads.remove(c);prefs.edit().remove("mapId").remove("cityId").remove("pendingUF").apply();packStatus.setText("Download cancelado. Os pacotes já instalados foram mantidos.");}
+ private void showMap(String uf){try{if(map!=null)map.destroyAll();mapFrame.removeAllViews();map=new MapView(this);map.setClickable(true);map.getMapScaleBar().setVisible(true);map.setBuiltInZoomControls(true);map.setZoomLevelMin((byte)5);map.setZoomLevelMax((byte)20);map.getModel().displayModel.setUserScaleFactor(1.2f);TileCache cache=AndroidUtil.createTileCache(this,"map-"+GeoAreas.region(uf),map.getModel().displayModel.getTileSize(),1f,map.getModel().frameBufferModel.getOverdrawFactor());MapFile mf=new MapFile(mapFile(uf));TileRendererLayer layer=AndroidUtil.createTileRendererLayer(cache,map.getModel().mapViewPosition,mf,MapsforgeThemes.DEFAULT,false,true,false);layer.setTextScale(1.35f);map.getLayerManager().getLayers().add(layer);map.setCenter(last!=null?new LatLong(last.getLatitude(),last.getLongitude()):mf.boundingBox().getCenterPoint());map.setZoomLevel((byte)(last==null?7:16));mapFrame.addView(map,new FrameLayout.LayoutParams(-1,-1));positionMarker=null;updateMarker();}catch(Exception e){packStatus.setText("Falha ao abrir o mapa. Baixe o pacote novamente.");}}
+ private void copy(){if(last==null||paused||SystemClock.elapsedRealtimeNanos()-last.getElapsedRealtimeNanos()>15_000_000_000L){status.setText("Aguarde uma posição atualizada para copiar");return;}String value="GPS Sentinela\n"+(lastAddress.isEmpty()?"Endereço não identificado":lastAddress)+"\nReferência: "+reference.getText()+"\nhttps://www.google.com/maps/search/?api=1&query="+last.getLatitude()+","+last.getLongitude();((ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("Localização",value));Toast.makeText(this,"Localização copiada",Toast.LENGTH_SHORT).show();}
+ private void updateMarker(){if(map==null||last==null)return;int size=dp(42);Bitmap b=Bitmap.createBitmap(size,size,Bitmap.Config.ARGB_8888);Canvas c=new Canvas(b);c.rotate(heading,size/2f,size/2f);Paint p=new Paint(3);Path path=new Path();path.moveTo(size*.5f,dp(2));path.lineTo(size*.88f,size*.92f);path.lineTo(size*.5f,size*.72f);path.lineTo(size*.12f,size*.92f);path.close();p.setColor(Color.rgb(184,155,88));c.drawPath(path,p);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(2));p.setColor(Color.WHITE);c.drawPath(path,p);org.mapsforge.core.graphics.Bitmap bitmap=new org.mapsforge.map.android.graphics.AndroidBitmap(b);LatLong pos=new LatLong(last.getLatitude(),last.getLongitude());if(positionMarker==null){positionMarker=new org.mapsforge.map.layer.overlay.Marker(pos,bitmap,0,0);map.getLayerManager().getLayers().add(positionMarker);}else{positionMarker.setBitmap(bitmap);positionMarker.setLatLong(pos);positionMarker.setVisible(true);}positionMarker.requestRedraw();}
+ @Override protected void onResume(){super.onResume();resumed=true;startGps();}
+ @Override protected void onPause(){resumed=false;stopGps();clearAddress();super.onPause();}
+ @Override protected void onDestroy(){destroyed=true;ui.removeCallbacksAndMessages(null);stopGps();if(map!=null)map.destroyAll();worker.execute(()->{if(lookup!=null)lookup.close();});worker.shutdown();super.onDestroy();}
+ @Override public void onProviderEnabled(String provider){startGps();}@Override public void onProviderDisabled(String provider){status.setText("GPS desativado ou indisponível");clearAddress();}@Override public void onStatusChanged(String provider,int s,Bundle b){}
 }

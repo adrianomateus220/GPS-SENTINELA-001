@@ -13,7 +13,7 @@ public final class RoadLookup implements AutoCloseable {
  static String tag(List<Tag> tags,String key){for(Tag t:tags)if(t.key.equals(key))return t.value;return "";}
  public Result at(double lat,double lon,double accuracy){
   Result r=new Result();if(accuracy>80)return r;
-  byte z=16;long x=MercatorProjection.longitudeToTileX(lon,z),y=MercatorProjection.latitudeToTileY(lat,z);
+  byte z=16;int x=MercatorProjection.longitudeToTileX(lon,z),y=MercatorProjection.latitudeToTileY(lat,z);
   MapReadResult data=file.readMapData(new Tile(Math.max(0,x-1),Math.max(0,y-1),z,256),new Tile(Math.min(65535,x+1),Math.min(65535,y+1),z,256));
   if(data==null)return r;
   double best=Double.MAX_VALUE,second=Double.MAX_VALUE;Way chosen=null;

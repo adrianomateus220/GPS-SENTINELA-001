@@ -1,11 +1,13 @@
 plugins { id 'com.android.application' }
 android { namespace 'br.com.sentinela.gps'; compileSdk 35
- defaultConfig { applicationId 'br.com.sentinela.gps'; minSdk 26; targetSdk 35; versionCode 7; versionName '0.7-offline-teste'; testInstrumentationRunner 'android.test.InstrumentationTestRunner' }
+ defaultConfig { applicationId 'br.com.sentinela.gps'; minSdk 26; targetSdk 35; versionCode 7; versionName '0.7-offline-teste'; testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner' }
  compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
 }
 dependencies {
  implementation 'org.mapsforge:mapsforge-map-android:0.25.0'
  implementation 'org.mapsforge:mapsforge-themes:0.25.0'
+ androidTestImplementation 'androidx.test:runner:1.6.2'
+ androidTestImplementation 'androidx.test.ext:junit:1.2.1'
  testImplementation 'junit:junit:4.13.2'
  testImplementation 'org.json:json:20240303'
 }

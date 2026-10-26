@@ -1,5 +1,9 @@
 package br.com.sentinela.gps;
-import android.test.ActivityInstrumentationTestCase2;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
+import static org.junit.Assert.*;
 import android.location.Location;
 import android.os.SystemClock;
 import android.view.*;
@@ -9,10 +13,12 @@ import org.mapsforge.map.reader.MapFile;
 import org.mapsforge.map.datastore.*;
 import org.mapsforge.core.model.*;
 import org.mapsforge.core.util.MercatorProjection;
-public class OfflineDeviceTest extends ActivityInstrumentationTestCase2<MainActivity> {
- public OfflineDeviceTest(){super(MainActivity.class);}
+@RunWith(AndroidJUnit4.class)
+public class OfflineDeviceTest {
+ private android.app.Instrumentation getInstrumentation(){return InstrumentationRegistry.getInstrumentation();}
+ private void runTestOnUiThread(Runnable r){getInstrumentation().runOnMainSync(r);}
  private boolean text(View v,String expected){if(v instanceof TextView&&((TextView)v).getText().toString().contains(expected))return true;if(v instanceof ViewGroup){ViewGroup g=(ViewGroup)v;for(int i=0;i<g.getChildCount();i++)if(text(g.getChildAt(i),expected))return true;}return false;}
- public void testOfflineOsasco()throws Throwable{
+ @Test public void testOfflineOsasco()throws Throwable{
   android.content.Context context=getInstrumentation().getTargetContext();
   File f=new File(context.getExternalFilesDir(null),"offline/sudeste.map");assertTrue("Actual regional map must be installed by CI",f.length()>1000000);
   context.getSharedPreferences("offline-v1",0).edit().clear().putString("active","SP").commit();
@@ -21,7 +27,7 @@ public class OfflineDeviceTest extends ActivityInstrumentationTestCase2<MainActi
   LatLong selected=null;String street=null;
   try(RoadLookup reader=new RoadLookup(f)){outer:for(Way way:data.ways){if(RoadLookup.tag(way.tags,"highway").isEmpty())continue;for(LatLong[] ring:way.latLongs)for(int i=1;i<ring.length;i++){LatLong a=ring[i-1],b=ring[i];if(RoadLookup.meters(a.latitude,a.longitude,b.latitude,b.longitude)<30)continue;LatLong mid=new LatLong((a.latitude+b.latitude)/2,(a.longitude+b.longitude)/2);RoadLookup.Result r=reader.at(mid.latitude,mid.longitude,5);if(r.matched){selected=mid;street=r.road;break outer;}}}}
   assertNotNull("Read a named real Osasco street offline",selected);final LatLong fix=selected;final String expected=street;
-  MainActivity activity=getActivity();Thread.sleep(10000);
+  MainActivity activity=(MainActivity)getInstrumentation().startActivitySync(new android.content.Intent(context,MainActivity.class).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK));Thread.sleep(10000);
   for(int i=0;i<6;i++){runTestOnUiThread(()->{Location l=new Location("gps");l.setLatitude(fix.latitude);l.setLongitude(fix.longitude);l.setAccuracy(5);l.setTime(System.currentTimeMillis());l.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());activity.onLocationChanged(l);});Thread.sleep(2000);}
   runTestOnUiThread(()->{View root=activity.getWindow().getDecorView();assertTrue("Local street displayed",text(root,expected));assertTrue("Municipality resolved from saved polygons",text(root,"Osasco"));assertTrue("Offline package ready",text(root,"consulta local"));assertFalse(text(root,"COORDENADAS"));assertFalse(text(root,"Voz:"));assertFalse(text(root,"Limites de companhias"));});
   Thread.sleep(17000);

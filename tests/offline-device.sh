@@ -11,7 +11,7 @@ adb shell svc wifi disable
 adb shell svc data disable
 adb shell cmd connectivity airplane-mode enable
 mkdir -p app/build/reports/device
-adb shell am instrument -w br.com.sentinela.gps.test/android.test.InstrumentationTestRunner | tee app/build/reports/device/instrumentation.txt
+adb shell am instrument -w br.com.sentinela.gps.test/androidx.test.runner.AndroidJUnitRunner | tee app/build/reports/device/instrumentation.txt
 if ! rg -q 'OK \(1 test\)' app/build/reports/device/instrumentation.txt; then
   adb logcat -d > app/build/reports/device/logcat.txt
   exit 1

@@ -20,7 +20,9 @@ public class OfflineDeviceTest {
  private boolean text(View v,String expected){if(v instanceof TextView&&((TextView)v).getText().toString().contains(expected))return true;if(v instanceof ViewGroup){ViewGroup g=(ViewGroup)v;for(int i=0;i<g.getChildCount();i++)if(text(g.getChildAt(i),expected))return true;}return false;}
  @Test public void testOfflineOsasco()throws Throwable{
   android.content.Context context=getInstrumentation().getTargetContext();
-  File f=new File(context.getExternalFilesDir(null),"offline/sudeste.map");assertTrue("Actual regional map must be installed by CI",f.length()>1000000);
+  File dir=new File(context.getExternalFilesDir(null),"offline");dir.mkdirs();
+  for(String name:new String[]{"sudeste.map","SP.json"}){android.os.ParcelFileDescriptor pipe=getInstrumentation().getUiAutomation().executeShellCommand("cat /data/local/tmp/sentinela-"+name);try(java.io.InputStream in=new android.os.ParcelFileDescriptor.AutoCloseInputStream(pipe);java.io.FileOutputStream out=new java.io.FileOutputStream(new File(dir,name))){byte[] b=new byte[65536];int n;while((n=in.read(b))!=-1)out.write(b,0,n);}}
+  File f=new File(dir,"sudeste.map");assertTrue("Actual regional map must be installed by CI",f.length()>1000000);
   context.getSharedPreferences("offline-v1",0).edit().clear().putString("active","SP").commit();
   MapFile source=new MapFile(f);byte zoom=16;int x=MercatorProjection.longitudeToTileX(-46.7916,zoom),y=MercatorProjection.latitudeToTileY(-23.5329,zoom);
   MapReadResult data=source.readMapData(new Tile(x,y,zoom,256));source.close();

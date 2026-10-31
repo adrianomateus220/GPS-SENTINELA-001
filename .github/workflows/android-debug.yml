@@ -44,7 +44,7 @@ jobs:
           disable-animations: false
           script: |
             gradle --no-daemon connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=br.com.sentinela.gps.StartupTest
-            adb pull /sdcard/Android/data/br.com.sentinela.gps/files/intro-0.13.png intro-0.13.png
+            adb pull /data/local/tmp/sentinela-intro.png intro-0.13.png
       - name: Verification reports
         if: always()
         uses: actions/upload-artifact@v4

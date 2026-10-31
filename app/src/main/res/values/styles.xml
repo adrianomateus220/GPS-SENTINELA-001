@@ -1,0 +1,10 @@
+<resources>
+ <style name="SentinelaTheme" parent="android:style/Theme.Material.NoActionBar">
+  <item name="android:fontFamily">sans-serif</item>
+  <item name="android:colorAccent">#FACC15</item>
+  <item name="android:windowBackground">#081220</item>
+  <item name="android:statusBarColor">#081220</item>
+  <item name="android:navigationBarColor">#081220</item>
+  <item name="android:colorControlHighlight">#66556B76</item>
+ </style>
+</resources>

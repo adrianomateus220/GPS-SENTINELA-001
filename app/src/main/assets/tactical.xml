@@ -1,17 +1,21 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<rendertheme xmlns="http://mapsforge.org/renderTheme" version="5" map-background="#081220" map-background-outside="#080e13">
- <rule e="way" k="*" v="*" closed="yes"><area fill="#102332"/></rule>
- <rule e="way" k="landuse" v="forest|grass|meadow|recreation_ground|village_green"><area fill="#102432"/></rule>
- <rule e="way" k="natural" v="wood|scrub|grassland"><area fill="#122a36"/></rule>
- <rule e="way" k="leisure" v="park|garden|pitch"><area fill="#18333f"/></rule>
- <rule e="way" k="natural" v="water"><area fill="#153b52"/></rule>
- <rule e="way" k="waterway" v="*"><line stroke="#245570" stroke-width="1.5"/><pathText k="name" font-size="12" fill="#77b9df" stroke="#10171c" stroke-width="2"/></rule>
- <rule e="way" k="building" v="*" zoom-min="14"><area fill="#1b3545" stroke="#4a565e" stroke-width="0.5"/></rule>
- <rule e="way" k="railway" v="rail|light_rail"><line stroke="#4d5962" stroke-width="2"/><line stroke="#11191f" stroke-width="1" stroke-dasharray="6,4"/></rule>
- <rule e="way" k="highway" v="*"><line stroke="#080d12" stroke-width="6"/><line stroke="#4e8fa6" stroke-width="3.5"/>
-  <rule e="way" k="highway" v="motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link"><line stroke="#7dd3ec" stroke-width="5"/></rule>
-  <rule e="way" k="highway" v="footway|path|steps|cycleway|track"><line stroke="#89969e" stroke-width="1" stroke-dasharray="3,3"/></rule>
-  <rule e="way" k="*" v="*" zoom-min="14"><pathText k="name" font-family="sans_serif" font-style="bold" font-size="15" fill="#f4f6f7" stroke="#0a1015" stroke-width="2.5"/></rule>
- </rule>
- <rule e="node" k="place" v="city|town|village|suburb|neighbourhood"><caption k="name" font-size="15" font-style="bold" fill="#e3ebef" stroke="#10171c" stroke-width="2"/></rule>
+<rendertheme xmlns="http://mapsforge.org/renderTheme" version="5" map-background="#18232c" map-background-outside="#111b23">
+ <rule e="way" k="landuse" v="residential|commercial|industrial"><area fill="#202d37"/></rule>
+ <rule e="way" k="landuse" v="forest|grass|meadow|recreation_ground|village_green"><area fill="#243b36"/></rule>
+ <rule e="way" k="natural" v="wood|scrub|grassland"><area fill="#243b36"/></rule>
+ <rule e="way" k="leisure" v="park|garden|pitch"><area fill="#2b443d"/></rule>
+ <rule e="way" k="natural" v="water"><area fill="#183e55"/></rule>
+ <rule e="way" k="waterway" v="river|canal|stream"><line stroke="#285570" stroke-width="0.6"/></rule>
+ <rule e="way" k="building" v="*" zoom-min="16"><area fill="#2b3943" stroke="#3b4a54" stroke-width="0.25"/></rule>
+ <rule e="way" k="railway" v="rail|light_rail"><line stroke="#6e7d85" stroke-width="0.65" stroke-dasharray="5,3"/></rule>
+ <rule e="way" k="highway" v="motorway|motorway_link|trunk|trunk_link" zoom-min="5"><line stroke="#121d25" stroke-width="2.75"/><line stroke="#d8c899" stroke-width="2.2"/></rule>
+ <rule e="way" k="highway" v="primary|primary_link" zoom-min="8"><line stroke="#121d25" stroke-width="2.35"/><line stroke="#cbd6dc" stroke-width="1.8"/></rule>
+ <rule e="way" k="highway" v="secondary|secondary_link|tertiary|tertiary_link" zoom-min="10"><line stroke="#121d25" stroke-width="1.9000000000000001"/><line stroke="#b7cbd6" stroke-width="1.35"/></rule>
+ <rule e="way" k="highway" v="residential|unclassified|living_street|road" zoom-min="12"><line stroke="#121d25" stroke-width="1.4"/><line stroke="#94afbf" stroke-width="0.85"/></rule>
+ <rule e="way" k="highway" v="service" zoom-min="15"><line stroke="#121d25" stroke-width="1.1"/><line stroke="#7893a3" stroke-width="0.55"/></rule>
+ <rule e="way" k="highway" v="footway|path|steps|cycleway|track" zoom-min="16"><line stroke="#6b8a82" stroke-width="0.35" stroke-dasharray="3,3"/></rule>
+ <rule e="way" k="highway" v="motorway|trunk|primary|secondary|tertiary" zoom-min="12"><pathText k="name" font-family="sans_serif" font-style="normal" font-size="12" fill="#ffffff" stroke="#18232c" stroke-width="1.7"/></rule>
+ <rule e="way" k="highway" v="residential|unclassified|living_street|road|service" zoom-min="15"><pathText k="name" font-family="sans_serif" font-style="normal" font-size="11" fill="#f4f7f9" stroke="#18232c" stroke-width="1.5"/></rule>
+ <rule e="node" k="place" v="city|town|village" zoom-max="13"><caption k="name" font-size="14" fill="#e1e9ee" stroke="#18232c" stroke-width="1.5"/></rule>
+ <rule e="node" k="place" v="suburb|neighbourhood" zoom-min="13" zoom-max="15"><caption k="name" font-size="11" fill="#a1b5c1" stroke="#18232c" stroke-width="1.5"/></rule>
 </rendertheme>

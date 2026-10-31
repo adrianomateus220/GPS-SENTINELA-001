@@ -1,6 +1,7 @@
 plugins { id 'com.android.application' }
 android { namespace 'br.com.sentinela.gps'; compileSdk 35
- defaultConfig { applicationId 'br.com.sentinela.gps'; minSdk 26; targetSdk 35; versionCode 13; versionName '0.13-strands-fast'; testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner' }
+ defaultConfig { applicationId 'br.com.sentinela.gps'; minSdk 26; targetSdk 35; versionCode 14; versionName '0.14-cartography'; testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner' }
+ sourceSets { androidTest.assets.srcDirs += ['src/test/resources'] }
  compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
 }
 dependencies {

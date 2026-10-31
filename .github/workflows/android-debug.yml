@@ -1,7 +1,7 @@
-name: Compilar Sentinela 0.13
+name: Compilar Sentinela 0.14
 on:
   push:
-    branches: [codex/sentinela-strands-0.13]
+    branches: [codex/sentinela-cartography-0.14]
   workflow_dispatch:
 permissions:
   contents: read
@@ -28,7 +28,7 @@ jobs:
         run: $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose app/build/outputs/apk/debug/app-debug.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: GPS-Sentinela-0.13
+          name: GPS-Sentinela-0.14
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
       - name: Enable KVM
@@ -44,13 +44,15 @@ jobs:
           disable-animations: false
           script: |
             gradle --no-daemon connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=br.com.sentinela.gps.StartupTest
-            adb pull /data/local/tmp/sentinela-intro.png intro-0.13.png
+            adb pull /data/local/tmp/sentinela-intro.png intro-0.14.png
+            adb pull /data/local/tmp/sentinela-map.png map-0.14.png
       - name: Verification reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Sentinela-0.13-verificacao
+          name: Sentinela-0.14-verificacao
           path: |
             app/build/reports/
             app/build/test-results/
-            intro-0.13.png
+            intro-0.14.png
+            map-0.14.png

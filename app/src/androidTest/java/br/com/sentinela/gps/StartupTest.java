@@ -19,8 +19,19 @@ public class StartupTest {
   // GPS callbacks are processed while the animation is still present.
   inst.runOnMainSync(()->{Location l=new Location("test");l.setLatitude(-23.5329);l.setLongitude(-46.7916);l.setAccuracy(5);l.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());l.setTime(System.currentTimeMillis());activity.onLocationChanged(l);assertTrue(text(activity.getWindow().getDecorView(),"Localização ativa"));});
   Thread.sleep(1100);try(android.os.ParcelFileDescriptor fd=inst.getUiAutomation().executeShellCommand("screencap -p /data/local/tmp/sentinela-intro.png");java.io.InputStream in=new android.os.ParcelFileDescriptor.AutoCloseInputStream(fd)){while(in.read()!=-1){}}
-  Thread.sleep(2400);inst.runOnMainSync(()->{assertFalse(text(activity.getWindow().getDecorView(),"PULAR ABERTURA"));assertTrue(text(activity.getWindow().getDecorView(),"SENTINELA"));assertTrue(text(activity.getWindow().getDecorView(),"VIA ATUAL"));});
+  Thread.sleep(IntroView.DURATION_MS);inst.runOnMainSync(()->{assertFalse(text(activity.getWindow().getDecorView(),"PULAR ABERTURA"));assertTrue(text(activity.getWindow().getDecorView(),"SENTINELA"));assertTrue(text(activity.getWindow().getDecorView(),"VIA ATUAL"));assertFalse(text(activity.getWindow().getDecorView(),"REFERÊNCIA VISUAL"));});
   inst.runOnMainSync(()->{for(int i=0;i<30;i++){Location l=new Location("test");l.setLatitude(-23.5329+i*.00001);l.setLongitude(-46.7916);l.setAccuracy(5);l.setElapsedRealtimeNanos(SystemClock.elapsedRealtimeNanos());activity.onLocationChanged(l);}activity.onPause();assertTrue(text(activity.getWindow().getDecorView(),"Aguardando posição atualizada"));});
   Thread.sleep(250);inst.runOnMainSync(()->{assertTrue(text(activity.getWindow().getDecorView(),"Aguardando posição atualizada"));activity.onResume();activity.finish();});
  }
+ @Test public void offlineThemeRenders()throws Exception{
+  android.app.Instrumentation inst=InstrumentationRegistry.getInstrumentation();android.content.Context context=inst.getTargetContext();
+  java.io.File f=new java.io.File(context.getExternalFilesDir(null),"offline/sudeste.map");f.getParentFile().mkdirs();try(java.io.InputStream in=inst.getContext().getAssets().open("fixture.map");java.io.FileOutputStream out=new java.io.FileOutputStream(f)){byte[] b=new byte[8192];int n;while((n=in.read(b))!=-1)out.write(b,0,n);}
+  org.mapsforge.map.reader.MapFile reader=new org.mapsforge.map.reader.MapFile(f);org.mapsforge.core.model.LatLong center=reader.boundingBox().getCenterPoint();reader.close();
+  MainActivity activity=(MainActivity)inst.startActivitySync(new android.content.Intent(context,MainActivity.class).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
+  Thread.sleep(IntroView.DURATION_MS+300);
+  inst.runOnMainSync(()->{try{java.lang.reflect.Method method=MainActivity.class.getDeclaredMethod("showMap",String.class);method.setAccessible(true);assertEquals(true,method.invoke(activity,"SP"));java.lang.reflect.Field field=MainActivity.class.getDeclaredField("map");field.setAccessible(true);org.mapsforge.map.android.view.MapView map=(org.mapsforge.map.android.view.MapView)field.get(activity);map.setCenter(center);map.setZoomLevel((byte)16);}catch(Exception e){throw new AssertionError(e);}});
+  Thread.sleep(3000);try(android.os.ParcelFileDescriptor fd=inst.getUiAutomation().executeShellCommand("screencap -p /data/local/tmp/sentinela-map.png");java.io.InputStream in=new android.os.ParcelFileDescriptor.AutoCloseInputStream(fd)){while(in.read()!=-1){}}
+  inst.runOnMainSync(()->activity.finish());
+ }
+
 }

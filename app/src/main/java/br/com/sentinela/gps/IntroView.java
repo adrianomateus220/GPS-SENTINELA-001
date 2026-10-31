@@ -8,7 +8,7 @@ public final class IntroView extends View {
  private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
  private final Path path=new Path();private final RectF rect=new RectF();
  private final long start=android.os.SystemClock.uptimeMillis();private Bitmap landscape;
- private final Typeface light=Typeface.create("sans-serif-light",0),medium=Typeface.create("sans-serif-medium",0);
+ private final Typeface light=Typeface.create("sans-serif-light",Typeface.NORMAL);
  private LinearGradient shade;private RadialGradient mist;private final Matrix mistMatrix=new Matrix();
  public IntroView(Context c){super(c);setContentDescription("Abertura Sentinela: vale entre montanhas, névoa e conexões luminosas");try(java.io.InputStream in=c.getAssets().open("strands-landscape.jpg")){landscape=BitmapFactory.decodeStream(in);}catch(java.io.IOException ignored){}}
  private float dp(float n){return n*getResources().getDisplayMetrics().density;}

@@ -1,14 +1,14 @@
-name: Compilar Sentinela 0.12
+name: Compilar Sentinela 0.13
 on:
   push:
-    branches: [codex/sentinela-strands-0.12]
+    branches: [codex/sentinela-strands-0.13]
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -28,6 +28,29 @@ jobs:
         run: $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose app/build/outputs/apk/debug/app-debug.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: GPS-Sentinela-0.12
+          name: GPS-Sentinela-0.13
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Test animated startup and GPS lifecycle
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          arch: x86_64
+          disable-animations: false
+          script: |
+            gradle --no-daemon connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=br.com.sentinela.gps.StartupTest
+            adb pull /sdcard/Android/data/br.com.sentinela.gps/files/intro-0.13.png intro-0.13.png
+      - name: Verification reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Sentinela-0.13-verificacao
+          path: |
+            app/build/reports/
+            app/build/test-results/
+            intro-0.13.png
